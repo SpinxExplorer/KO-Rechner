@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>KO Live</title>
+<style>
+:root{--bg:#f4f7fb;--card:#fff;--ink:#172033;--muted:#68758b;--line:#e2e8f0;--blue:#2563eb;--green:#059669;--red:#dc2626;--amber:#b45309}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;padding-bottom:88px}
+.app{max-width:1100px;margin:auto;padding:12px}.top{position:sticky;top:0;z-index:5;background:rgba(244,247,251,.94);backdrop-filter:blur(12px);padding:8px 0 10px}
+.brand{display:flex;align-items:center;gap:10px}.logo{width:42px;height:42px;border-radius:14px;background:linear-gradient(135deg,#0f172a,#2563eb);color:#fff;display:grid;place-items:center;font-weight:900}
+h1{font-size:20px;margin:0}.sub{font-size:11px;color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;margin:10px 0;padding:14px;box-shadow:0 8px 25px rgba(15,23,42,.06)}
+.search{display:grid;grid-template-columns:1fr auto;gap:8px}input,select,button{font:inherit}input,select{width:100%;border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff}
+button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:pointer}.primary{background:var(--blue);color:#fff}.secondary{background:#edf2f7;color:#334155}
+.segment{display:grid;grid-template-columns:1fr 1fr;background:#eef2f7;border-radius:12px;padding:4px;margin-top:10px}.segment button{background:transparent;color:#64748b;padding:10px}.segment .active{background:#fff;color:#111827;box-shadow:0 2px 8px rgba(15,23,42,.08)}
+.issuers{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}.issuer{display:flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:11px;padding:9px;font-size:12px;font-weight:700}.issuer input{width:auto}
+.filters{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.label{font-size:10px;color:var(--muted);font-weight:800;text-transform:uppercase;margin:0 0 4px 2px}
+.status{padding:10px;border-radius:11px;background:#f8fafc;color:#64748b;font-size:11px;margin-top:9px;line-height:1.4}.status.err{background:#fef2f2;color:#991b1b}
+.products{display:grid;gap:9px}.p{border:1px solid var(--line);border-radius:15px;padding:12px}.ptop{display:flex;justify-content:space-between;gap:8px}.name{font-size:13px;font-weight:900}.meta{font-size:11px;color:var(--muted);margin-top:3px}.pill{font-size:10px;background:#eef2f7;border-radius:999px;padding:5px 8px;font-weight:900;height:max-content}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:9px}.stat{text-align:center;background:#f8fafc;border-radius:9px;padding:7px 3px}.stat b{display:block;font-size:12px}.stat span{font-size:8px;color:var(--muted);text-transform:uppercase}
+.p button{width:100%;margin-top:9px;padding:9px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.quick{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.quick button{padding:9px 3px;background:#f1f5f9;color:#334155;font-size:11px}.quick .active{background:var(--blue);color:#fff}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px}.kpi{border-radius:14px;background:#f8fafc;padding:11px;min-height:82px}.kpi .t{font-size:9px;color:var(--muted);text-transform:uppercase;font-weight:800}.kpi .v{font-size:20px;font-weight:950;margin-top:6px}.good .v{color:var(--green)}.bad .v{color:var(--red)}.warn .v{color:var(--amber)}
+.bottom{position:fixed;bottom:0;left:0;right:0;background:rgba(255,255,255,.96);backdrop-filter:blur(14px);border-top:1px solid var(--line);padding:10px 12px calc(10px + env(safe-area-inset-bottom));z-index:10}.bottomin{max-width:1100px;margin:auto;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.small{font-size:10px;color:var(--muted);line-height:1.4}
+@media(min-width:780px){.layout{display:grid;grid-template-columns:360px 1fr;gap:12px;align-items:start}.left{position:sticky;top:70px}.issuers{grid-template-columns:1fr 1fr}.kpis{grid-template-columns:repeat(4,1fr)}}
+</style>
+</head>
+<body>
+<div class="app">
+ <div class="top"><div class="brand"><div class="logo">KO</div><div><h1>KO Live</h1><div class="sub">Aktuelle KO-Scheine + Szenario-Rechner</div></div></div></div>
+ <div class="layout">
+  <div class="left">
+   <div class="card">
+    <div class="search"><input id="q" value="DAX Future" placeholder="DAX Future, NVIDIA, WKN …"><button class="primary" id="searchBtn">Suchen</button></div>
+    <div class="segment"><button id="longBtn" class="active">🟢 Long</button><button id="shortBtn">🔴 Short</button></div>
+    <div class="issuers">
+     <label class="issuer"><input type="checkbox" checked value="BNP Paribas">BNP</label>
+     <label class="issuer"><input type="checkbox" checked value="J.P. Morgan">J.P. Morgan</label>
+     <label class="issuer"><input type="checkbox" checked value="Société Générale">Société Générale</label>
+     <label class="issuer"><input type="checkbox" checked value="Vontobel">Vontobel</label>
+    </div>
+    <div class="filters">
+     <div><div class="label">Max. Hebel</div><input id="lev" type="number" min="1" max="50" value="50"></div>
+     <div><div class="label">Max. KO-Abstand %</div><input id="kod" type="number" min="0.1" max="100" step=".1" value="15"></div>
+    </div>
+    <div id="status" class="status">Bereit für Live-Suche.</div>
+   </div>
+
+   <div class="card">
+    <div class="label">Ausgewählter Schein</div>
+    <div class="grid2">
+     <input id="wkn" placeholder="WKN">
+     <input id="issuer" placeholder="Emittent">
+     <input id="spot" type="number" step="any" placeholder="Basiswert aktuell">
+     <input id="ko" type="number" step="any" placeholder="KO-Schwelle">
+     <input id="strike" type="number" step="any" placeholder="Basispreis">
+     <input id="ratio" type="number" step="any" placeholder="Bezugsverhältnis">
+     <input id="bid" type="number" step="any" placeholder="Geldkurs">
+     <input id="ask" type="number" step="any" placeholder="Briefkurs">
+     <input id="fx" type="number" step="any" value="1" placeholder="FX">
+     <input id="qty" type="number" step="1" value="100" placeholder="Stückzahl">
+    </div>
+    <div class="small" style="margin-top:8px">Fehlende Werte kannst du ergänzen. Für die Szenariorechnung sind insbesondere Basiswert, KO/Basispreis, Bezugsverhältnis und Geldkurs relevant.</div>
+   </div>
+  </div>
+
+  <div>
+   <div class="card"><div class="label">Gefundene Produkte</div><div id="products" class="products"><div class="status">Noch keine Suche ausgeführt.</div></div></div>
+
+   <div class="card">
+    <div class="label">Kurs-Szenario</div>
+    <div class="quick">
+      <button data-p="-10">−10%</button><button data-p="-5">−5%</button><button data-p="-3">−3%</button><button data-p="0">0%</button>
+      <button data-p="3">+3%</button><button data-p="5" class="active">+5%</button><button data-p="10">+10%</button><button data-p="20">+20%</button>
+    </div>
+    <div class="grid2" style="margin-top:8px"><input id="targetPct" type="number" value="5" step=".1"><input id="targetSpot" type="number" step="any" placeholder="Zielkurs"></div>
+   </div>
+
+   <div class="card">
+    <div class="kpis">
+     <div class="kpi"><div class="t">Verkaufskurs</div><div id="sell" class="v">–</div></div>
+     <div id="retBox" class="kpi good"><div class="t">Rendite</div><div id="ret" class="v">–</div></div>
+     <div class="kpi"><div class="t">Positionswert</div><div id="value" class="v">–</div><div id="pnl" class="small">–</div></div>
+     <div id="koBox" class="kpi warn"><div class="t">KO-Abstand Ziel</div><div id="koDist" class="v">–</div></div>
+    </div>
+   </div>
+  </div>
+ </div>
+ <div class="small" style="padding:10px 2px 0"><b>Hinweis:</b> Hochriskante Hebelprodukte; Totalverlust möglich. Der Rechner liefert eine Näherung, keinen verbindlichen Emittentenkurs. Finanzierungskosten, Spreads, Quotierungsunterbrechungen, Gap-Risiko und Produktbedingungen können den tatsächlichen Verkaufskurs verändern.</div>
+</div>
+
+<div class="bottom"><div class="bottomin"><button class="secondary" id="saveBtn">💾 Lokal speichern</button><button class="primary" id="calcBtn">📈 Berechnen</button></div></div>
+
+<script>
+const $=x=>document.getElementById(x); let direction="long";
+const num=x=>parseFloat($(x).value)||0, fmt=(x,d=2)=>Number.isFinite(x)?x.toLocaleString("de-DE",{minimumFractionDigits:d,maximumFractionDigits:d}):"–";
+const eur=x=>fmt(x,2)+" €", pc=x=>(x>0?"+":"")+fmt(x,1)+" %";
+function setDir(d){direction=d;$("longBtn").classList.toggle("active",d==="long");$("shortBtn").classList.toggle("active",d==="short");calc()}
+$("longBtn").onclick=()=>setDir("long");$("shortBtn").onclick=()=>setDir("short");
+function selectedIssuers(){return [...document.querySelectorAll(".issuer input:checked")].map(x=>x.value)}
+async function searchLive(){
+ const st=$("status"); st.className="status";st.textContent="Live-Produkte werden geladen …";$("products").innerHTML='<div class="status">Suche läuft …</div>';
+ const p=new URLSearchParams({q:$("q").value,direction,maxLeverage:$("lev").value,maxKoDistance:$("kod").value});
+ selectedIssuers().forEach(x=>p.append("issuer",x));
+ try{
+  const r=await fetch("/api/search?"+p.toString()); const d=await r.json();
+  if(!d.ok) throw new Error(d.error+(d.detail?" · "+d.detail:""));
+  st.textContent=`${d.count} passende Produkte · Quelle: ${d.source}`;
+  renderProducts(d.products);
+ }catch(e){st.className="status err";st.textContent=e.message;$("products").innerHTML='<div class="status err">Live-Suche fehlgeschlagen. Prüfe Internetverbindung bzw. ob die Datenquelle ihre Seite geändert hat.</div>'}
+}
+$("searchBtn").onclick=searchLive;
+function renderProducts(arr){
+ const box=$("products");box.innerHTML="";
+ if(!arr.length){box.innerHTML='<div class="status">Keine Produkte mit diesen Filtern gefunden. Hebel oder KO-Abstand erweitern.</div>';return}
+ arr.forEach(p=>{
+   const d=document.createElement("div");d.className="p";
+   d.innerHTML=`<div class="ptop"><div><div class="name">${p.underlying||p.name} · ${p.wkn}</div><div class="meta">${p.issuer} · ${p.name||""}</div></div><div class="pill">${p.leverage==null?"–":fmt(p.leverage,1)+"x"}</div></div>
+   <div class="stats"><div class="stat"><b>${p.ko==null?"–":fmt(p.ko,2)}</b><span>KO</span></div><div class="stat"><b>${p.koDistance==null?"–":fmt(p.koDistance,1)+"%"}</b><span>KO-Abstand</span></div><div class="stat"><b>${p.bid==null?"–":eur(p.bid)}</b><span>Geld</span></div><div class="stat"><b>${p.ask==null?"–":eur(p.ask)}</b><span>Brief</span></div></div><button class="secondary">In Rechner übernehmen</button>`;
+   d.querySelector("button").onclick=()=>loadP(p);box.appendChild(d)
+ })
+}
+function loadP(p){
+ $("wkn").value=p.wkn||"";$("issuer").value=p.issuer||"";$("ko").value=p.ko??"";$("strike").value=p.strike??"";$("bid").value=p.bid??"";$("ask").value=p.ask??"";
+ $("status").textContent=`${p.wkn} übernommen. Ergänze ggf. Basiswertkurs/Bezugsverhältnis.`;syncTarget();calc()
+}
+function syncTarget(){if(num("spot"))$("targetSpot").value=(num("spot")*(1+num("targetPct")/100)).toFixed(4)}
+function isKO(s){return direction==="long"?s<=num("ko"):s>=num("ko")}
+function estimate(s){
+ if(num("ko")&&isKO(s))return{price:0,ko:true};
+ const dir=direction==="long"?1:-1;
+ const ratio=num("ratio"); if(!ratio || !num("bid") || !num("spot")) return {price:NaN,ko:false};
+ return {price:Math.max(0,num("bid")+dir*(s-num("spot"))*ratio/(num("fx")||1)),ko:false}
+}
+function calc(){
+ const s=num("targetSpot")||num("spot"),e=estimate(s),b=num("bid"),q=num("qty"),r=b&&Number.isFinite(e.price)?(e.price/b-1)*100:NaN,val=e.price*q,pl=val-b*q;
+ $("sell").textContent=Number.isFinite(e.price)?eur(e.price):"Daten fehlen";$("ret").textContent=e.ko?"KO":(Number.isFinite(r)?pc(r):"–");$("value").textContent=Number.isFinite(val)?eur(val):"–";$("pnl").textContent=Number.isFinite(pl)?((pl>=0?"+":"")+eur(pl)):"–";
+ let kd=NaN;if(num("ko")&&s)kd=direction==="long"?(s/num("ko")-1)*100:(num("ko")/s-1)*100;
+ $("koDist").textContent=e.ko?"0 %":(Number.isFinite(kd)?pc(kd):"–");$("retBox").className="kpi "+(e.ko||r<0?"bad":"good");$("koBox").className="kpi "+(e.ko?"bad":kd<5?"warn":"good")
+}
+document.querySelectorAll(".quick button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".quick button").forEach(x=>x.classList.remove("active"));b.classList.add("active");$("targetPct").value=b.dataset.p;syncTarget();calc()});
+$("targetPct").oninput=()=>{syncTarget();calc()};$("targetSpot").oninput=calc;["spot","ko","strike","ratio","bid","ask","fx","qty"].forEach(x=>$(x).oninput=calc);$("calcBtn").onclick=calc;
+$("saveBtn").onclick=()=>{const o={};["q","wkn","issuer","spot","ko","strike","ratio","bid","ask","fx","qty","targetPct","targetSpot"].forEach(x=>o[x]=$(x).value);o.direction=direction;localStorage.setItem("koLiveState",JSON.stringify(o));$("status").textContent="Lokal gespeichert."}
+try{const o=JSON.parse(localStorage.getItem("koLiveState")||"null");if(o){Object.entries(o).forEach(([k,v])=>{if($(k))$(k).value=v});setDir(o.direction||"long")}}catch(e){}
+syncTarget();calc();
+</script>
+</body>
+</html>
