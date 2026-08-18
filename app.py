@@ -1,49 +1,48 @@
 from flask import Flask, render_template, request, jsonify
 import requests
 import re
-import json
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin
+from urllib.parse import quote_plus
 
 app = Flask(__name__)
 
 ONVISTA = "https://www.onvista.de"
-SEARCH_API = "https://api.onvista.de/api/v1/instruments/search"
-ALLOWED_ISSUERS = {"BNP Paribas", "J.P. Morgan", "Société Générale", "Vontobel"}
 
-session = requests.Session()
-session.headers.update({
-    "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Mobile/15E148 Safari/604.1",
+ALLOWED_ISSUERS = {
+    "BNP Paribas",
+    "J.P. Morgan",
+    "Société Générale",
+    "Vontobel",
+}
+
+S = requests.Session()
+S.headers.update({
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
     "Accept-Language": "de-DE,de;q=0.9,en;q=0.8",
-    "Accept": "application/json,text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Referer": "https://www.onvista.de/",
-    "Cache-Control": "no-cache",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
 })
 
 
-def parse_num(value):
-    if value is None:
+def num(s):
+    if s is None:
         return None
-    if isinstance(value, (int, float)):
-        return float(value)
-    s = str(value).replace("\xa0", " ").strip()
-    if not s or s in {"-", "–", "n.a.", "n.a"}:
-        return None
-    s = re.sub(r"[^\d,.\-]", "", s)
-    if not s:
-        return None
-    if "," in s and "." in s:
-        s = s.replace(".", "").replace(",", ".") if s.rfind(",") > s.rfind(".") else s.replace(",", "")
-    elif "," in s:
-        s = s.replace(",", ".")
-    try:
+    if isinstance(s, (int, float)):
         return float(s)
+    s = str(s).replace("\xa0", " ").strip()
+    m = re.search(r"-?\d[\d.\s]*,\d+|-?\d+(?:\.\d+)?", s)
+    if not m:
+        return None
+    x = m.group(0).replace(" ", "")
+    if "," in x:
+        x = x.replace(".", "").replace(",", ".")
+    try:
+        return float(x)
     except ValueError:
         return None
 
 
-def normalize_issuer(value):
-    t = (value or "").lower()
+def normalize_issuer(text):
+    t = (text or "").lower()
     if "bnp" in t:
         return "BNP Paribas"
     if "j.p. morgan" in t or "jp morgan" in t or "jpmorgan" in t:
@@ -55,213 +54,178 @@ def normalize_issuer(value):
     return None
 
 
-def all_dicts(obj):
-    if isinstance(obj, dict):
-        yield obj
-        for value in obj.values():
-            yield from all_dicts(value)
-    elif isinstance(obj, list):
-        for value in obj:
-            yield from all_dicts(value)
+def google_product_url(wkn):
+    """
+    Resolve the full Onvista product URL.
+    Onvista product URLs contain an internal numeric id, so constructing
+    /Knock-Outs/<WKN> directly causes a 404.
+    """
+    q = f'site:onvista.de/derivate/Knock-Outs/ "{wkn}"'
+    url = "https://www.google.com/search?q=" + quote_plus(q)
+    r = S.get(url, timeout=15)
+    r.raise_for_status()
 
+    # Google result links may contain the direct Onvista URL or /url?q=...
+    patterns = [
+        rf'https://www\.onvista\.de/derivate/Knock-Outs/\d+-{re.escape(wkn)}-[A-Z0-9]+',
+        rf'https%3A%2F%2Fwww\.onvista\.de%2Fderivate%2FKnock-Outs%2F\d+-{re.escape(wkn)}-[A-Z0-9]+',
+    ]
+    for pat in patterns:
+        m = re.search(pat, r.text, re.I)
+        if m:
+            found = m.group(0)
+            if found.startswith("https%3A"):
+                from urllib.parse import unquote
+                found = unquote(found)
+            return found.split("&")[0]
 
-def deep_first(obj, keys):
-    wanted = {k.lower() for k in keys}
-    for d in all_dicts(obj):
-        for key, value in d.items():
-            if str(key).lower() in wanted and value not in (None, "", [], {}):
-                return value
     return None
 
 
-def search_api_record(query):
-    r = session.get(SEARCH_API, params={"searchValue": query}, timeout=15)
-    r.raise_for_status()
-    data = r.json()
-    q = query.upper()
-    candidates = []
-    for d in all_dicts(data):
-        wkn = str(d.get("wkn") or deep_first(d, ["wkn"]) or "").upper()
-        isin = str(d.get("isin") or deep_first(d, ["isin"]) or "").upper()
-        blob = json.dumps(d, ensure_ascii=False).upper()
-        score = 0
-        if wkn == q: score += 1000
-        if isin == q: score += 1000
-        if q in blob: score += 50
-        if "KNOCK" in blob or "TURBO" in blob: score += 40
-        if "DERIVAT" in blob or "HEBEL" in blob: score += 10
-        if score:
-            candidates.append((score, d))
-    if not candidates:
-        return {}
-    candidates.sort(key=lambda item: item[0], reverse=True)
-    best = candidates[0][1]
-    url = best.get("url") or best.get("link") or best.get("path") or deep_first(best, ["url", "link", "path", "seoUrl"])
-    if url and str(url).startswith("/"):
-        url = urljoin(ONVISTA, str(url))
-    return {
-        "wkn": best.get("wkn") or deep_first(best, ["wkn"]),
-        "isin": best.get("isin") or deep_first(best, ["isin"]),
-        "name": best.get("name") or best.get("displayName") or best.get("label") or deep_first(best, ["name", "displayName", "label", "shortName"]),
-        "url": url,
-    }
-
-
-def find_product_url(query):
-    """Resolve WKN/ISIN with Onvista's own short URL first.
-
-    Onvista supports URLs such as https://www.onvista.de/BY02UE and redirects
-    them to the exact instrument page. This is much more robust than trying
-    to reconstruct a product URL from the generic search result.
+def onvista_search_product_url(wkn):
     """
-    q = (query or "").strip().upper()
+    Fallback: Onvista's own search page.
+    """
+    candidates = [
+        f"{ONVISTA}/suche/?searchValue={quote_plus(wkn)}",
+        f"{ONVISTA}/suche?searchValue={quote_plus(wkn)}",
+        f"{ONVISTA}/suche/?query={quote_plus(wkn)}",
+    ]
 
-    # 1) Official Onvista short URL: /<WKN-or-ISIN> -> exact instrument page
-    r = session.get(f"{ONVISTA}/{q}", timeout=20, allow_redirects=True)
-    r.raise_for_status()
-    final_url = r.url
-    page_upper = r.text.upper()
+    rx = re.compile(
+        rf'(/derivate/Knock-Outs/\d+-{re.escape(wkn)}-[A-Z0-9]+)',
+        re.I
+    )
 
-    if q in page_upper and "/DERIVATE/KNOCK-OUTS/" in final_url.upper():
-        return {"wkn": q if len(q) == 6 else None, "isin": q if len(q) == 12 else None, "url": final_url}, final_url
-
-    # 2) Fallback to API metadata if the short URL behavior ever changes
-    rec = search_api_record(q)
-    if rec.get("url") and "/derivate/Knock-Outs/" in rec["url"]:
-        return rec, rec["url"]
-
-    # 3) Last fallback: Onvista search page
-    sr = session.get(ONVISTA + "/suche/", params={"searchValue": q}, timeout=20)
-    sr.raise_for_status()
-    soup = BeautifulSoup(sr.text, "html.parser")
-    for a in soup.find_all("a", href=True):
-        href = a["href"]
-        hay = (href + " " + a.get_text(" ", strip=True)).upper()
-        if q in hay and "/DERIVATE/KNOCK-OUTS/" in href.upper():
-            url = urljoin(ONVISTA, href)
-            return rec, url
-
-    raise ValueError(f"Onvista hat keine Knock-Out-Produktseite für {q} gefunden.")
+    for url in candidates:
+        try:
+            r = S.get(url, timeout=15)
+            if r.status_code != 200:
+                continue
+            m = rx.search(r.text)
+            if m:
+                return ONVISTA + m.group(1)
+        except requests.RequestException:
+            pass
+    return None
 
 
-def parse_visible_product(html):
+def resolve_product_url(wkn):
+    url = onvista_search_product_url(wkn)
+    if url:
+        return url
+    url = google_product_url(wkn)
+    if url:
+        return url
+    raise ValueError("Die Onvista-Produktseite zur WKN wurde nicht gefunden.")
+
+
+def parse_product(html, url, requested_wkn):
     soup = BeautifulSoup(html, "html.parser")
     text = re.sub(r"\s+", " ", soup.get_text(" ", strip=True))
+
     title = soup.find("h1")
-    name = title.get_text(" ", strip=True) if title else None
+    title_text = title.get_text(" ", strip=True) if title else ""
 
-    wkn = None
+    # Identity
+    wkn = requested_wkn.upper()
     isin = None
-    m = re.search(r"\bWKN\s+([A-Z0-9]{6})\b", text, re.I)
-    if m: wkn = m.group(1).upper()
-    m = re.search(r"\bISIN\s+([A-Z]{2}[A-Z0-9]{9}[0-9])\b", text, re.I)
-    if m: isin = m.group(1).upper()
+    m = re.search(r"\b(DE[A-Z0-9]{10})\b", text, re.I)
+    if m:
+        isin = m.group(1).upper()
 
-    upper = f" {name or ''} ".upper()
-    if " LONG " in upper or " CALL " in upper:
-        direction = "long"
-    elif " SHORT " in upper or " PUT " in upper:
-        direction = "short"
-    else:
-        snippet = text[:5000].upper()
-        direction = "long" if "(CALL)" in snippet else ("short" if "(PUT)" in snippet else None)
+    issuer = normalize_issuer(text)
 
-    issuer = None
-    for candidate in ALLOWED_ISSUERS:
-        if candidate.lower() in text.lower():
-            issuer = candidate
-            break
+    # Direction/type
+    u = (title_text + " " + text[:2500]).upper()
+    direction = "long" if ("TURBO LONG" in u or "(CALL)" in u or " TYP CALL" in u) else (
+        "short" if ("TURBO SHORT" in u or "(PUT)" in u or " TYP PUT" in u) else None
+    )
 
-    def g(pattern):
-        m = re.search(pattern, text, re.I)
-        return parse_num(m.group(1)) if m else None
+    # Label-anchored values: do not infer from table positions.
+    def labelled(label, suffix=r"(?:EUR|USD|CHF|Pkt\.)?"):
+        m = re.search(
+            rf"\b{label}\b\s*([0-9.\s]+,[0-9]+)\s*{suffix}",
+            text, re.I
+        )
+        return num(m.group(1)) if m else None
 
-    strike = g(r"\bBasispreis\s+([0-9.\s]+,[0-9]+)\s*(?:EUR|USD|CHF|Pkt\.)")
-    ko = g(r"\bK\.?O\.?(?:-Schwelle)?\s+([0-9.\s]+,[0-9]+)\s*(?:EUR|USD|CHF|Pkt\.)")
-    leverage = g(r"\bHebel\s+([0-9.,]+)\s*x\b")
-    ratio = g(r"\bBezugsverhältnis\s+([0-9.,]+)\b")
-    # Current Onvista layout: "Geld · 1.200 Stk. 16,780 EUR" / "Brief · ... 16,950 EUR"
-    bid = g(r"\bGeld\b.{0,100}?([0-9]+(?:[.]?[0-9]{3})*,[0-9]+)\s*(?:EUR|USD|CHF)\b")
-    ask = g(r"\bBrief\b.{0,100}?([0-9]+(?:[.]?[0-9]{3})*,[0-9]+)\s*(?:EUR|USD|CHF)\b")
-    ko_distance = g(r"\bAbstand\s+K\.?O\.?\s+[0-9.\s]+,[0-9]+\s*(?:EUR|USD|CHF|Pkt\.)\s*\(([0-9.,]+)\s*%\)")
+    strike = labelled(r"Basispreis")
+    ko = labelled(r"K\.?O\.?")
+    leverage = None
+    m = re.search(r"\bHebel\s+([0-9.,]+)\s*x\b", text, re.I)
+    if m:
+        leverage = num(m.group(1))
 
+    ratio = None
+    m = re.search(r"\bBezugsverhältnis\s+([0-9.,]+)", text, re.I)
+    if m:
+        ratio = num(m.group(1))
+
+    ko_distance = None
+    m = re.search(
+        r"\bAbstand\s+K\.?O\.?\s+[0-9.\s]+,[0-9]+\s*(?:EUR|USD|CHF|Pkt\.)?\s*\(([0-9.,]+)\s*%\)",
+        text, re.I
+    )
+    if m:
+        ko_distance = num(m.group(1))
+
+    # Top quote block. Restrict the search window so later tables don't win.
+    bid = ask = None
+    m = re.search(r"\bGeld\b.{0,100}?([0-9.\s]+,[0-9]+)\s*(?:EUR|USD|CHF)", text, re.I)
+    if m:
+        bid = num(m.group(1))
+    m = re.search(r"\bBrief\b.{0,100}?([0-9.\s]+,[0-9]+)\s*(?:EUR|USD|CHF)", text, re.I)
+    if m:
+        ask = num(m.group(1))
+
+    # Basiswert block: name + quoted underlying price.
     underlying = None
     spot = None
     m = re.search(
-        r"\bBasiswert\s+(.+?)\s+(?:Xetra|Tradegate|Nasdaq|NYSE|Stuttgart|Frankfurt|gettex|Eurex|L&S|Lang & Schwarz)\s*[·|].{0,80}?([0-9.\s]+,[0-9]+)\s*(EUR|USD|CHF|Pkt\.)",
+        r"\bBasiswert\s+(.+?)\s+"
+        r"(?:Xetra|Tradegate|Nasdaq|NYSE|Stuttgart|Frankfurt|gettex|Eurex|BNP Paribas)"
+        r"\s*[·|].{0,100}?([0-9.\s]+,[0-9]+)\s*(EUR|USD|CHF|Pkt\.)",
         text, re.I
     )
     if m:
         underlying = m.group(1).strip()
-        spot = parse_num(m.group(2))
+        spot = num(m.group(2))
 
-    if not underlying and name:
-        m = re.search(r"\bAUF\s+(.+?)(?:\s+AG|\s+SE|\s+PLC|\s+NV|\s*$)", name, re.I)
+    if not underlying:
+        # Product title often contains "... AUF BAYER AG".
+        m = re.search(r"\bAUF\s+(.+?)(?:\s+AG\b|\s+SE\b|\s+PLC\b|$)", title_text, re.I)
         if m:
-            underlying = m.group(1).strip()
+            underlying = m.group(1).strip().title()
+
+    if ko_distance is None and spot and ko:
+        ko_distance = ((ko / spot - 1) * 100) if direction == "short" else ((spot / ko - 1) * 100)
 
     return {
-        "wkn": wkn, "isin": isin, "name": name, "issuer": issuer,
-        "underlying": underlying, "spot": spot, "strike": strike, "ko": ko,
-        "ratio": ratio, "bid": bid, "ask": ask, "leverage": leverage,
-        "koDistance": ko_distance, "maturity": "", "direction": direction,
+        "wkn": wkn,
+        "isin": isin,
+        "name": title_text or f"{underlying or ''} Knock-out".strip(),
+        "issuer": issuer,
+        "underlying": underlying,
+        "spot": spot,
+        "strike": strike,
+        "ko": ko,
+        "ratio": ratio,
+        "bid": bid,
+        "ask": ask,
+        "leverage": leverage,
+        "koDistance": ko_distance,
+        "maturity": "open end" if "open end" in text.lower() else "",
+        "direction": direction,
+        "profileUrl": url,
     }
 
 
-def enrich_missing_from_next_data(html, product):
-    soup = BeautifulSoup(html, "html.parser")
-    tag = soup.find("script", id="__NEXT_DATA__")
-    if not tag:
-        return product
-    try:
-        data = json.loads(tag.string or tag.get_text())
-    except Exception:
-        return product
-
-    mapping = {
-        "wkn": ["wkn"],
-        "isin": ["isin"],
-        "strike": ["strike", "exercisePrice", "basePrice"],
-        "ko": ["knockOutBarrier", "knockoutBarrier", "koBarrier"],
-        "ratio": ["ratio", "subscriptionRatio", "conversionRatio"],
-        "spot": ["underlyingPrice", "underlyingLast", "lastUnderlyingPrice"],
-        "bid": ["bidPrice"],
-        "ask": ["askPrice"],
-        "leverage": ["leverage", "leverageAsk"],
-        "underlying": ["underlyingName", "underlyingShortName"],
-    }
-    numeric = {"strike", "ko", "ratio", "spot", "bid", "ask", "leverage"}
-    for field, keys in mapping.items():
-        if product.get(field) not in (None, ""):
-            continue
-        value = deep_first(data, keys)
-        if field in numeric:
-            value = parse_num(value)
-        if value not in (None, ""):
-            product[field] = value
-
-    if not product.get("issuer"):
-        product["issuer"] = normalize_issuer(deep_first(data, ["issuerName", "issuer", "issuerShortName"]))
-
-    if product.get("koDistance") is None and product.get("spot") and product.get("ko"):
-        if product.get("direction") == "short":
-            product["koDistance"] = (product["ko"] / product["spot"] - 1) * 100
-        else:
-            product["koDistance"] = (product["spot"] / product["ko"] - 1) * 100
-    return product
-
-
-def load_product(query):
-    rec, url = find_product_url(query)
-    r = session.get(url, timeout=20)
+def load_wkn(wkn):
+    url = resolve_product_url(wkn)
+    r = S.get(url, timeout=20)
     r.raise_for_status()
-    product = parse_visible_product(r.text)
-    product = enrich_missing_from_next_data(r.text, product)
-    product["wkn"] = product.get("wkn") or rec.get("wkn") or (query if len(query) == 6 else None)
-    product["isin"] = product.get("isin") or rec.get("isin")
-    product["name"] = product.get("name") or rec.get("name") or "Onvista Knock-out"
-    product["profileUrl"] = url
-    return product
+    return parse_product(r.text, url, wkn)
 
 
 @app.get("/")
@@ -275,40 +239,52 @@ def api_search():
     direction = (request.args.get("direction") or "long").lower()
     max_lev = float(request.args.get("maxLeverage") or 50)
     max_ko = float(request.args.get("maxKoDistance") or 100)
-    wanted = set(request.args.getlist("issuer")) & ALLOWED_ISSUERS or set(ALLOWED_ISSUERS)
 
-    if not q:
-        return jsonify({"ok": False, "error": "Bitte WKN oder ISIN eingeben."}), 400
+    wanted = set(request.args.getlist("issuer")) & ALLOWED_ISSUERS
+    if not wanted:
+        wanted = set(ALLOWED_ISSUERS)
 
-    is_wkn = bool(re.fullmatch(r"[A-Z0-9]{6}", q))
-    is_isin = bool(re.fullmatch(r"[A-Z]{2}[A-Z0-9]{9}[0-9]", q))
-    if not (is_wkn or is_isin):
-        return jsonify({"ok": False, "error": "Diese stabile Version sucht zunächst gezielt nach WKN oder ISIN."}), 400
+    if not re.fullmatch(r"[A-Z0-9]{6}", q):
+        return jsonify({
+            "ok": False,
+            "error": "Bitte eine sechsstellige WKN eingeben."
+        }), 400
 
     try:
-        p = load_product(q)
+        p = load_wkn(q)
+
         if p.get("issuer") and p["issuer"] not in wanted:
             return jsonify({"ok": True, "source": "Onvista", "count": 0, "products": []})
+
         if p.get("direction") and p["direction"] != direction:
             return jsonify({"ok": True, "source": "Onvista", "count": 0, "products": []})
+
         if p.get("leverage") is not None and p["leverage"] > max_lev:
             return jsonify({"ok": True, "source": "Onvista", "count": 0, "products": []})
+
         if p.get("koDistance") is not None and p["koDistance"] > max_ko:
             return jsonify({"ok": True, "source": "Onvista", "count": 0, "products": []})
+
         return jsonify({
             "ok": True,
-            "source": "Onvista WKN/ISIN",
-            "sourceUrl": p.get("profileUrl"),
+            "source": "Onvista",
+            "sourceUrl": p["profileUrl"],
             "count": 1,
             "products": [p],
         })
-    except requests.Timeout:
-        return jsonify({"ok": False, "error": "Onvista hat nicht rechtzeitig geantwortet."}), 504
+
     except requests.HTTPError as e:
         status = getattr(e.response, "status_code", "?")
-        return jsonify({"ok": False, "error": f"Onvista hat den Abruf abgewiesen ({status})."}), 502
+        return jsonify({
+            "ok": False,
+            "error": f"Onvista/Suche hat den Abruf abgewiesen ({status})."
+        }), 502
     except Exception as e:
-        return jsonify({"ok": False, "error": "Die WKN/ISIN konnte nicht sauber aus Onvista geladen werden.", "detail": str(e)}), 502
+        return jsonify({
+            "ok": False,
+            "error": "Produkt konnte nicht geladen werden.",
+            "detail": str(e)
+        }), 502
 
 
 if __name__ == "__main__":
