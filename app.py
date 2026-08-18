@@ -108,18 +108,40 @@ def search_api_record(query):
 
 
 def find_product_url(query):
-    rec = search_api_record(query)
+    """Resolve WKN/ISIN with Onvista's own short URL first.
+
+    Onvista supports URLs such as https://www.onvista.de/BY02UE and redirects
+    them to the exact instrument page. This is much more robust than trying
+    to reconstruct a product URL from the generic search result.
+    """
+    q = (query or "").strip().upper()
+
+    # 1) Official Onvista short URL: /<WKN-or-ISIN> -> exact instrument page
+    r = session.get(f"{ONVISTA}/{q}", timeout=20, allow_redirects=True)
+    r.raise_for_status()
+    final_url = r.url
+    page_upper = r.text.upper()
+
+    if q in page_upper and "/DERIVATE/KNOCK-OUTS/" in final_url.upper():
+        return {"wkn": q if len(q) == 6 else None, "isin": q if len(q) == 12 else None, "url": final_url}, final_url
+
+    # 2) Fallback to API metadata if the short URL behavior ever changes
+    rec = search_api_record(q)
     if rec.get("url") and "/derivate/Knock-Outs/" in rec["url"]:
         return rec, rec["url"]
-    r = session.get(ONVISTA + "/suche/", params={"searchValue": query}, timeout=20)
-    r.raise_for_status()
-    soup = BeautifulSoup(r.text, "html.parser")
+
+    # 3) Last fallback: Onvista search page
+    sr = session.get(ONVISTA + "/suche/", params={"searchValue": q}, timeout=20)
+    sr.raise_for_status()
+    soup = BeautifulSoup(sr.text, "html.parser")
     for a in soup.find_all("a", href=True):
         href = a["href"]
         hay = (href + " " + a.get_text(" ", strip=True)).upper()
-        if query.upper() in hay and "/DERIVATE/KNOCK-OUTS/" in href.upper():
-            return rec, urljoin(ONVISTA, href)
-    raise ValueError("Onvista hat keine passende Knock-Out-Produktseite gefunden.")
+        if q in hay and "/DERIVATE/KNOCK-OUTS/" in href.upper():
+            url = urljoin(ONVISTA, href)
+            return rec, url
+
+    raise ValueError(f"Onvista hat keine Knock-Out-Produktseite für {q} gefunden.")
 
 
 def parse_visible_product(html):
@@ -158,8 +180,9 @@ def parse_visible_product(html):
     ko = g(r"\bK\.?O\.?(?:-Schwelle)?\s+([0-9.\s]+,[0-9]+)\s*(?:EUR|USD|CHF|Pkt\.)")
     leverage = g(r"\bHebel\s+([0-9.,]+)\s*x\b")
     ratio = g(r"\bBezugsverhältnis\s+([0-9.,]+)\b")
-    bid = g(r"\bGeld\b.{0,80}?([0-9.\s]+,[0-9]+)\s*(?:EUR|USD|CHF)\b")
-    ask = g(r"\bBrief\b.{0,80}?([0-9.\s]+,[0-9]+)\s*(?:EUR|USD|CHF)\b")
+    # Current Onvista layout: "Geld · 1.200 Stk. 16,780 EUR" / "Brief · ... 16,950 EUR"
+    bid = g(r"\bGeld\b.{0,100}?([0-9]+(?:[.]?[0-9]{3})*,[0-9]+)\s*(?:EUR|USD|CHF)\b")
+    ask = g(r"\bBrief\b.{0,100}?([0-9]+(?:[.]?[0-9]{3})*,[0-9]+)\s*(?:EUR|USD|CHF)\b")
     ko_distance = g(r"\bAbstand\s+K\.?O\.?\s+[0-9.\s]+,[0-9]+\s*(?:EUR|USD|CHF|Pkt\.)\s*\(([0-9.,]+)\s*%\)")
 
     underlying = None
