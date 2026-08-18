@@ -79,6 +79,7 @@ def search_onvista_instrument(q):
     r = session.get(SEARCH_API, params={"searchValue": q}, timeout=15)
     r.raise_for_status()
     data = r.json()
+    print("DEBUG ONVISTA SEARCH:", q, json.dumps(data, ensure_ascii=False)[:4000], flush=True)
     candidates = []
     ql = q.lower()
     for d in walk(data):
