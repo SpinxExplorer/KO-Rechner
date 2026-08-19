@@ -125,7 +125,7 @@ function renderProducts(arr){
  })
 }
 function loadP(p){
- $("wkn").value=p.wkn||"";$("issuer").value=p.issuer||"";$("ko").value=p.ko??"";$("strike").value=p.strike??"";$("bid").value=p.bid??"";$("ask").value=p.ask??"";
+$("wkn").value=p.wkn||"";$("issuer").value=p.issuer||"";$("spot").value=p.spot??"";$("ko").value=p.ko??"";$("strike").value=p.strike??"";$("ratio").value=p.ratio??"";$("bid").value=p.bid??"";$("ask").value=p.ask??"";
  $("status").textContent=`${p.wkn} übernommen. Ergänze ggf. Basiswertkurs/Bezugsverhältnis.`;syncTarget();calc()
 }
 function syncTarget(){if(num("spot"))$("targetSpot").value=(num("spot")*(1+num("targetPct")/100)).toFixed(4)}
