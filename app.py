@@ -284,6 +284,7 @@ def api_search():
             return jsonify({"ok": False, "error": "Bitte aktuell WKN oder ISIN eingeben."}), 400
 
         p = search_by_wkn_or_isin(q_clean)
+        print("DEBUG PRODUCT BEFORE FILTERS:", json.dumps(p, ensure_ascii=False, default=str), flush=True)
 
         if p.get("issuer") and p["issuer"] not in wanted:
             return jsonify({"ok": True, "source": "Onvista", "count": 0, "products": []})
