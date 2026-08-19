@@ -101,7 +101,7 @@ def search_onvista_instrument(q):
         raise ValueError("Kein passendes Onvista-Instrument gefunden.")
     candidates.sort(key=lambda x: x[0], reverse=True)
     best = candidates[0][1]
-    url = best.get("url") or best.get("link") or best.get("path") or deep_first(best, ["url", "link", "path", "seoUrl"])
+    url = (best.get("urls") or {}).get("WEBSITE") or best.get("url") or best.get("link") or best.get("path") or deep_first(best, ["url", "link", "path", "seoUrl"])
     if url and str(url).startswith("/"):
         url = urljoin(ONVISTA, str(url))
     return {
