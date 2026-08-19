@@ -186,9 +186,7 @@ def parse_labeled_product_data(html):
         mname = re.match(r"(.+?)(?:\s+(?:Xetra|Tradegate|Nasdaq|NYSE|Stuttgart|Frankfurt|gettex|Eurex)\b|\s+[·|])", basis_segment, re.I)
         if mname:
             underlying = mname.group(1).strip()
-        mspot = re.search(r"([0-9][0-9.]*,[0-9]+)\s*(?:EUR|USD|CHF|Pkt\.)", basis_segment, re.I)
-        if mspot:
-            spot = parse_num(mspot.group(1))
+        
 
     ko_distance = None
     md = re.search(r"(?:Abstand\s+(?:K\.?O\.?|Knock-Out)|K\.?O\.?-Abstand)\D{0,40}([0-9.,]+)\s*%", text, re.I)
