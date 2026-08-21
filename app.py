@@ -239,6 +239,7 @@ def enrich_missing_from_next_data(html, product):
            value = deep_first(data, [key])
            if value not in (None, "", [], {}):
                break
+        print("DEBUG MAPPED FIELD:", field, "KEYS:", keys, "VALUE:", value, flush=True)     
         if field in numeric_fields:
             value = parse_num(value)
         if value not in (None, ""):
