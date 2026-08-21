@@ -234,7 +234,11 @@ def enrich_missing_from_next_data(html, product):
     for field, keys in mapping.items():
         if field not in {"spot", "bid", "ask"} and product.get(field) not in (None, ""):
             continue
-        value = deep_first(data, keys)
+        value = None
+        for key in keys:
+           value = deep_first(data, [key])
+           if value not in (None, "", [], {}):
+               break
         if field in numeric_fields:
             value = parse_num(value)
         if value not in (None, ""):
