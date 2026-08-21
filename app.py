@@ -258,6 +258,7 @@ def search_by_wkn_or_isin(q):
     r.raise_for_status()
     product = parse_labeled_product_data(r.text)
     product = enrich_missing_from_next_data(r.text, product)
+    print("DEBUG PRODUCT AFTER ENRICH:", json.dumps(product, ensure_ascii=False, default=str), flush=True)
     product["wkn"] = product.get("wkn") or inst.get("wkn") or (q.upper() if len(q) == 6 else None)
     product["isin"] = product.get("isin") or inst.get("isin")
     product["name"] = product.get("name") or inst.get("name") or "Onvista Knock-out"
