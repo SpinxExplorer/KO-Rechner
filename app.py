@@ -210,7 +210,10 @@ def enrich_missing_from_next_data(html, product):
         return product
     try:
         data = json.loads(tag.string or tag.get_text())
-        print("DEBUG NEXT DATA:", json.dumps(data, ensure_ascii=False)[:12000], flush=True)
+        for d in walk(data):
+            for k, v in d.items():
+                if any(x in str(k).lower() for x in ["bid", "ask", "price", "kurs", "quote", "underlying"]):
+                    print("DEBUG PRICE FIELD:", k, "=", v, flush=True)   
     except Exception:
         return product
 
