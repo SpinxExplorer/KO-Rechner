@@ -205,6 +205,7 @@ def parse_labeled_product_data(html):
 def enrich_missing_from_next_data(html, product):
     soup = BeautifulSoup(html, "html.parser")
     tag = soup.find("script", id="__NEXT_DATA__")
+    print("DEBUG NEXT TAG FOUND:", bool(tag), flush=True)
     if not tag:
         return product
     try:
