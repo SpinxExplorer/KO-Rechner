@@ -79,7 +79,7 @@ def search_onvista_instrument(q):
     r = session.get(SEARCH_API, params={"searchValue": q}, timeout=15)
     r.raise_for_status()
     data = r.json()
-    print("DEBUG ONVISTA SEARCH:", q, json.dumps(data, ensure_ascii=False)[:4000], flush=True)
+    
     candidates = []
     ql = q.lower()
     for d in walk(data):
@@ -205,15 +205,12 @@ def parse_labeled_product_data(html):
 def enrich_missing_from_next_data(html, product):
     soup = BeautifulSoup(html, "html.parser")
     tag = soup.find("script", id="__NEXT_DATA__")
-    print("DEBUG NEXT TAG FOUND:", bool(tag), flush=True)
+    
     if not tag:
         return product
     try:
         data = json.loads(tag.string or tag.get_text())
-        for d in walk(data):
-            for k, v in d.items():
-                if any(x in str(k).lower() for x in ["bid", "ask", "price", "kurs", "quote", "underlying"]):
-                    print("DEBUG PRICE FIELD:", k, "=", v, flush=True)   
+           
     except Exception:
         return product
 
@@ -239,7 +236,7 @@ def enrich_missing_from_next_data(html, product):
            value = deep_first(data, [key])
            if value not in (None, "", [], {}):
                break
-        print("DEBUG MAPPED FIELD:", field, "KEYS:", keys, "VALUE:", value, flush=True)     
+             
         if field in numeric_fields:
             value = parse_num(value)
         if value not in (None, ""):
@@ -259,7 +256,7 @@ def search_by_wkn_or_isin(q):
     r.raise_for_status()
     product = parse_labeled_product_data(r.text)
     product = enrich_missing_from_next_data(r.text, product)
-    print("DEBUG PRODUCT AFTER ENRICH:", json.dumps(product, ensure_ascii=False, default=str), flush=True)
+   
     product["wkn"] = product.get("wkn") or inst.get("wkn") or (q.upper() if len(q) == 6 else None)
     product["isin"] = product.get("isin") or inst.get("isin")
     product["name"] = product.get("name") or inst.get("name") or "Onvista Knock-out"
@@ -293,7 +290,7 @@ def api_search():
             return jsonify({"ok": False, "error": "Bitte aktuell WKN oder ISIN eingeben."}), 400
 
         p = search_by_wkn_or_isin(q_clean)
-        print("DEBUG PRODUCT BEFORE FILTERS:", json.dumps(p, ensure_ascii=False, default=str), flush=True)
+        
 
         if p.get("issuer") and p["issuer"] not in wanted:
             return jsonify({"ok": True, "source": "Onvista", "count": 0, "products": []})
