@@ -232,7 +232,7 @@ def enrich_missing_from_next_data(html, product):
     numeric_fields = {"strike", "ko", "ratio", "spot", "bid", "ask", "leverage"}
 
     for field, keys in mapping.items():
-        if product.get(field) not in (None, ""):
+        if field not in {"spot", "bid", "ask"} and product.get(field) not in (None, ""):
             continue
         value = deep_first(data, keys)
         if field in numeric_fields:
