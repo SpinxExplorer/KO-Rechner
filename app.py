@@ -223,9 +223,9 @@ def enrich_missing_from_next_data(html, product):
         "strike": ["strike", "exercisePrice", "basePrice"],
         "ko": ["knockOutBarrier", "knockoutBarrier", "koBarrier"],
         "ratio": ["ratio", "subscriptionRatio", "conversionRatio"],
-        "spot": ["underlyingPrice", "underlyingLast", "lastUnderlyingPrice"],
-        "bid": ["bid", "bidPrice"],
-        "ask": ["ask", "askPrice"],
+        "spot": ["priceUnderlying", "priceUnderlyingCalculation", "underlyingPrice", "underlyingLast", "lastUnderlyingPrice"],
+        "bid": ["bidPriceCalculation", "bid", "bidPrice"],
+        "ask": ["askPriceCalculation", "ask", "askPrice"],
         "leverage": ["leverage", "leverageAsk"],
         "underlying": ["underlyingName", "underlyingShortName"],
     }
