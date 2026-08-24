@@ -145,6 +145,7 @@ function calc(){
 }
 document.querySelectorAll(".quick button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".quick button").forEach(x=>x.classList.remove("active"));b.classList.add("active");$("targetPct").value=b.dataset.p;syncTarget();calc()});
 $("spot").oninput=()=>{syncTarget();calc()};["ko","strike","ratio","bid","ask","fx","qty"].forEach(x=>$(x).oninput=calc);
+$("targetPct").oninput=()=>{syncTarget();calc()};$("targetSpot").oninput=calc;$("calcBtn").onclick=calc; 
 $("saveBtn").onclick=()=>{const o={};["q","wkn","issuer","spot","ko","strike","ratio","bid","ask","fx","qty","targetPct","targetSpot"].forEach(x=>o[x]=$(x).value);o.direction=direction;localStorage.setItem("koLiveState",JSON.stringify(o));$("status").textContent="Lokal gespeichert."}
 try{const o=JSON.parse(localStorage.getItem("koLiveState")||"null");if(o){Object.entries(o).forEach(([k,v])=>{if($(k))$(k).value=v});setDir(o.direction||"long")}}catch(e){}
 syncTarget();calc();
