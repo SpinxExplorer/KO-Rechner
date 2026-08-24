@@ -293,15 +293,7 @@ def api_search():
         p = search_by_wkn_or_isin(q_clean)
         print("FINAL CHECK:", p.get("issuer"), p.get("direction"), p.get("leverage"), p.get("koDistance"), flush=True)
 
-        if p.get("issuer") and p["issuer"] not in wanted:
-            return jsonify({"ok": True, "source": "Onvista", "count": 0, "products": []})
-        if p.get("direction") and p["direction"] != direction:
-            return jsonify({"ok": True, "source": "Onvista", "count": 0, "products": []})
-        if p.get("leverage") is not None and p["leverage"] > max_lev:
-            return jsonify({"ok": True, "source": "Onvista", "count": 0, "products": []})
-        if p.get("koDistance") is not None and p["koDistance"] > max_ko:
-            return jsonify({"ok": True, "source": "Onvista", "count": 0, "products": []})
-
+        
         return jsonify({
             "ok": True,
             "source": "Onvista WKN/ISIN",
