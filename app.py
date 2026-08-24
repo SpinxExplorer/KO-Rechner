@@ -193,7 +193,7 @@ def parse_labeled_product_data(html):
     if md:
         ko_distance = parse_num(md.group(1))
     if ko_distance is None and spot and ko:
-        ko_distance = ((ko / spot - 1) * 100) if direction == "short" else ((spot / ko - 1) * 100)
+        ko_distance = abs(spot - ko) / spot * 100
 
     return {
         "wkn": wkn, "isin": isin, "name": name, "issuer": issuer,
@@ -246,7 +246,7 @@ def enrich_missing_from_next_data(html, product):
         product["issuer"] = normalize_issuer(deep_first(data, ["issuerName", "issuer", "issuerShortName"]))
 
     if product.get("koDistance") is None and product.get("spot") and product.get("ko"):
-        product["koDistance"] = ((product["ko"] / product["spot"] - 1) * 100) if product.get("direction") == "short" else ((product["spot"] / product["ko"] - 1) * 100)
+        product["koDistance"] = abs(product["spot"] - product["ko"]) / product["spot"] * 100
 
     return product
 
