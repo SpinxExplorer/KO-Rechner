@@ -247,7 +247,8 @@ def enrich_missing_from_next_data(html, product):
 
     if product.get("koDistance") is None and product.get("spot") and product.get("ko"):
         product["koDistance"] = abs(product["spot"] - product["ko"]) / product["spot"] * 100
-
+    if not product.get("direction") and product.get("spot") and product.get("ko"):
+        product["direction"] = "short" if product["ko"] > product["spot"] else "long"
     return product
 
 def search_by_wkn_or_isin(q):
