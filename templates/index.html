@@ -130,12 +130,20 @@ $("wkn").value=p.wkn||"";$("issuer").value=p.issuer||"";$("spot").value=p.spot??
 $("status").textContent=`${p.wkn} übernommen. Ergänze ggf. Basiswertkurs/Bezugsverhältnis.`;syncTarget();if(p.direction)setDir(p.direction);else calc()
 }
 function syncTarget(){if(num("spot"))$("targetSpot").value=(num("spot")*(1+num("targetPct")/100)).toFixed(4)}
-function isKO(s){return direction==="long"?s<=num("ko"):s>=num("ko")}
+function currentDirection(){
+  return $("shortBtn").classList.contains("active") ? "short" : "long";
+}
+
+function isKO(s){
+  return currentDirection()==="long" ? s<=num("ko") : s>=num("ko");
+}
+
 function estimate(s){
- if(num("ko")&&isKO(s))return{price:0,ko:true};
- const dir=direction==="long"?1:-1;
- const ratio=num("ratio"); if(!ratio || !num("bid") || !num("spot")) return {price:NaN,ko:false};
- return {price:Math.max(0,num("bid")+dir*(s-num("spot"))*ratio/(num("fx")||1)),ko:false}
+  if(num("ko")&&isKO(s))return{price:0,ko:true};
+  const dir=currentDirection()==="long"?1:-1;
+  const ratio=num("ratio");
+  if(!ratio || !num("bid") || !num("spot")) return {price:NaN,ko:false};
+  return {price:Math.max(0,num("bid")+dir*(s-num("spot"))*ratio/(num("fx")||1)),ko:false};
 }
 function calc(){
  const s=num("targetSpot")||num("spot"),e=estimate(s),b=num("bid"),q=num("qty"),r=b&&Number.isFinite(e.price)?(e.price/b-1)*100:NaN,val=e.price*q,pl=val-b*q;
