@@ -156,7 +156,7 @@ $("spot").oninput=()=>{syncTarget();calc()};["ko","strike","ratio","bid","ask","
 $("targetPct").oninput=()=>{syncTarget();calc()};$("targetSpot").oninput=calc;$("calcBtn").onclick=calc; 
 $("saveBtn").onclick=()=>{const o={};["q","wkn","issuer","spot","ko","strike","ratio","bid","ask","fx","qty","targetPct","targetSpot"].forEach(x=>o[x]=$(x).value);o.direction=direction;localStorage.setItem("koLiveState",JSON.stringify(o));$("status").textContent="Lokal gespeichert."}
 try{const o=JSON.parse(localStorage.getItem("koLiveState")||"null");if(o){Object.entries(o).forEach(([k,v])=>{if($(k))$(k).value=v});setDir(o.direction||"long")}}catch(e){}
-syncTarget();calc();
+calc();
 </script>
 </body>
 </html>
