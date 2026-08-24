@@ -140,7 +140,7 @@ let kd=NaN;if(num("ko")&&s)kd=Math.abs(s-num("ko"))/s*100;
 function calc(){
  const s=num("targetSpot")||num("spot"),e=estimate(s),b=num("bid"),q=num("qty"),r=b&&Number.isFinite(e.price)?(e.price/b-1)*100:NaN,val=e.price*q,pl=val-b*q;
  $("sell").textContent=Number.isFinite(e.price)?eur(e.price):"Daten fehlen";$("ret").textContent=e.ko?"KO":(Number.isFinite(r)?pc(r):"–");$("value").textContent=Number.isFinite(val)?eur(val):"–";$("pnl").textContent=Number.isFinite(pl)?((pl>=0?"+":"")+eur(pl)):"–";
-
+ let kd=NaN;if(num("ko")&&s)kd=Math.abs(s-num("ko"))/s*100;
  $("koDist").textContent=e.ko?"0 %":(Number.isFinite(kd)?pc(kd):"–");$("retBox").className="kpi "+(e.ko||r<0?"bad":"good");$("koBox").className="kpi "+(e.ko?"bad":kd<5?"warn":"good")
 }
 document.querySelectorAll(".quick button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".quick button").forEach(x=>x.classList.remove("active"));b.classList.add("active");$("targetPct").value=b.dataset.p;syncTarget();calc()});
