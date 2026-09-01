@@ -246,7 +246,70 @@ def enrich_missing_from_next_data(html, product):
             value = parse_num(value)
         if value not in (None, ""):
             product[field] = value
+    # Aktuellsten Emittenten-Quote für Geld/Brief verwenden
+    issuer_key = re.sub(r"[^a-z0-9]", "", str(product.get("issuer") or "").lower())
 
+    best_quote = None
+    best_quote_time = ""
+
+    for d in walk(data):
+        bid_val = d.get("bid")
+        ask_val = d.get("ask")
+
+        if not isinstance(bid_val, (int, float)) or not isinstance(ask_val, (int, float)):
+            continue
+
+        market = d.get("market") if isinstance(d.get("market"), dict) else {}
+        quote_name = (
+            market.get("name")
+            or d.get("nameContributor")
+            or d.get("codeContributor")
+            or ""
+        )
+        quote_key = re.sub(r"[^a-z0-9]", "", str(quote_name).lower())
+
+        if issuer_key and issuer_key not in quote_key and quote_key not in issuer_key:
+            continue
+
+        quote_time = max(
+            str(d.get("datetimeBid") or ""),
+            str(d.get("datetimeAsk") or ""),
+            str(d.get("datetimeLast") or "")
+        )
+
+        if quote_time > best_quote_time:
+            best_quote_time = quote_time
+            best_quote = d
+
+    if best_quote:
+        product["bid"] = parse_num(best_quote.get("bid"))
+        product["ask"] = parse_num(best_quote.get("ask"))
+
+    # Neuesten zum Produkt gehörenden Basiswertkurs verwenden
+    best_spot = None
+    best_spot_time = ""
+
+    for d in walk(data):
+        spot_val = d.get("priceUnderlyingCalculation")
+        if spot_val in (None, ""):
+            spot_val = d.get("priceUnderlying")
+
+        spot_val = parse_num(spot_val)
+        if spot_val is None:
+            continue
+
+        spot_time = max(
+            str(d.get("datetimePriceUnderlyingCalculation") or ""),
+            str(d.get("datetimeCalculation") or ""),
+            str(d.get("datetimePrice") or "")
+        )
+
+        if spot_time > best_spot_time:
+            best_spot_time = spot_time
+            best_spot = spot_val
+
+    if best_spot is not None:
+        product["spot"] = best_spot
     if not product.get("issuer"):
         product["issuer"] = normalize_issuer(deep_first(data, ["issuerName", "issuer", "issuerShortName"]))
 
