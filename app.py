@@ -235,7 +235,7 @@ def enrich_missing_from_next_data(html, product):
             for d in walk(data):
                 for k, v in d.items():
                     if str(k) in keys:
-                        print("QUOTE DEBUG:", field, k, "=", v, flush=True)
+                        print("QUOTE DEBUG:", field, k, "=", v, "OBJECT=", d, flush=True)
         value = None
         for key in keys:
            value = deep_first(data, [key])
