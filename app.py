@@ -271,15 +271,15 @@ def enrich_missing_from_next_data(html, product):
         if issuer_key and issuer_key not in quote_key and quote_key not in issuer_key:
             continue
 
-       bid_time = str(d.get("datetimeBid") or "")
-       ask_time = str(d.get("datetimeAsk") or "")
+        bid_time = str(d.get("datetimeBid") or "")
+        ask_time = str(d.get("datetimeAsk") or "")
 
-       if bid_time or ask_time:
-           quote_time = max(bid_time, ask_time)
-       else:
-           quote_time = str(d.get("datetimeLast") or "")
+        if bid_time or ask_time:
+            quote_time = max(bid_time, ask_time)
+        else:
+            quote_time = str(d.get("datetimeLast") or "")
 
-       if quote_time > best_quote_time:
+        if quote_time > best_quote_time:
             best_quote_time = quote_time
             best_quote = d
 
