@@ -279,7 +279,7 @@ def enrich_missing_from_next_data(html, product):
        else:
            quote_time = str(d.get("datetimeLast") or "")
 
-        if quote_time > best_quote_time:
+       if quote_time > best_quote_time:
             best_quote_time = quote_time
             best_quote = d
 
