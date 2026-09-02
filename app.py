@@ -246,72 +246,37 @@ def enrich_missing_from_next_data(html, product):
             value = parse_num(value)
         if value not in (None, ""):
             product[field] = value
-    # Aktuellsten Emittenten-Quote für Geld/Brief verwenden
-    issuer_key = re.sub(r"[^a-z0-9]", "", str(product.get("issuer") or "").lower())
-
-    best_quote = None
-    best_quote_time = ""
+       # Neuesten zusammengehörenden Calculation-Datensatz verwenden
+    best_calc = None
+    best_calc_time = ""
 
     for d in walk(data):
-        bid_val = d.get("bid")
-        ask_val = d.get("ask")
+        bid_calc = parse_num(d.get("bidPriceCalculation"))
+        ask_calc = parse_num(d.get("askPriceCalculation"))
+        spot_calc = parse_num(d.get("priceUnderlyingCalculation"))
 
-        if not isinstance(bid_val, (int, float)) or not isinstance(ask_val, (int, float)):
+        if bid_calc is None or ask_calc is None or spot_calc is None:
             continue
 
-        market = d.get("market") if isinstance(d.get("market"), dict) else {}
-        quote_name = (
-            market.get("name")
-            or d.get("nameContributor")
-            or d.get("codeContributor")
-            or ""
-        )
-        quote_key = re.sub(r"[^a-z0-9]", "", str(quote_name).lower())
-
-        if issuer_key and issuer_key not in quote_key and quote_key not in issuer_key:
-            continue
-
-        bid_time = str(d.get("datetimeBid") or "")
-        ask_time = str(d.get("datetimeAsk") or "")
-
-        if bid_time or ask_time:
-            quote_time = max(bid_time, ask_time)
-        else:
-            quote_time = str(d.get("datetimeLast") or "")
-
-        if quote_time > best_quote_time:
-            best_quote_time = quote_time
-            best_quote = d
-
-    if best_quote:
-        product["bid"] = parse_num(best_quote.get("bid"))
-        product["ask"] = parse_num(best_quote.get("ask"))
-
-    # Neuesten zum Produkt gehörenden Basiswertkurs verwenden
-    best_spot = None
-    best_spot_time = ""
-
-    for d in walk(data):
-        spot_val = d.get("priceUnderlyingCalculation")
-        if spot_val in (None, ""):
-            spot_val = d.get("priceUnderlying")
-
-        spot_val = parse_num(spot_val)
-        if spot_val is None:
-            continue
-
-        spot_time = max(
-            str(d.get("datetimePriceUnderlyingCalculation") or ""),
+        calc_time = max(
+            str(d.get("datetimeBidPrice") or ""),
+            str(d.get("datetimeAskPrice") or ""),
             str(d.get("datetimeCalculation") or ""),
-            str(d.get("datetimePrice") or "")
+            str(d.get("datetimePriceUnderlyingCalculation") or "")
         )
 
-        if spot_time > best_spot_time:
-            best_spot_time = spot_time
-            best_spot = spot_val
+        if calc_time > best_calc_time:
+            best_calc_time = calc_time
+            best_calc = {
+                "bid": bid_calc,
+                "ask": ask_calc,
+                "spot": spot_calc
+            }
 
-    if best_spot is not None:
-        product["spot"] = best_spot
+    if best_calc:
+        product["bid"] = best_calc["bid"]
+        product["ask"] = best_calc["ask"]
+        product["spot"] = best_calc["spot"]
     if not product.get("issuer"):
         product["issuer"] = normalize_issuer(deep_first(data, ["issuerName", "issuer", "issuerShortName"]))
 
